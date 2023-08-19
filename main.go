@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"math/rand"
@@ -44,9 +45,18 @@ func scanSongs(root string) []string {
 }
 
 func main() {
-	// songs := scanSongs("/home/finnneon/Music")
+	root := "/home/finnneon/Music/"
+	songs := scanSongs(root)
 	http.HandleFunc("/random", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello, World!")
+		path := root + randomSong(songs)
+		f, err := os.Open(path)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, err)
+			return
+		}
+		defer f.Close()
+		io.Copy(w, f)
 	})
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
