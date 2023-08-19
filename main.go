@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -18,8 +20,13 @@ func isMP3(path string) bool {
 	return extension == "mp3"
 }
 
-func main() {
-	root := "/home/finnneon/Music"
+func randomSong(songs []string) string {
+	i := rand.Intn(len(songs))
+	return songs[i]
+}
+
+func scanSongs(root string) []string {
+	var songs []string
 	fs.WalkDir(os.DirFS(root), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			log.Fatal(err)
@@ -30,7 +37,17 @@ func main() {
 		if !isMP3(path) {
 			return nil
 		}
-		fmt.Println(path)
+		songs = append(songs, path)
 		return nil
 	})
+	return songs
+}
+
+func main() {
+	// songs := scanSongs("/home/finnneon/Music")
+	http.HandleFunc("/random", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Hello, World!")
+	})
+
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
