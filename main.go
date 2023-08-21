@@ -9,7 +9,19 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
+
+var password string
+
+func generatePassword() string {
+	parts := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	var sb strings.Builder
+	for i := 0; i < 8; i++ {
+		sb.WriteByte(parts[rand.Intn(len(parts))])
+	}
+	return sb.String()
+}
 
 // isMP3 checks if a file is an MP3. Ignores other file formats not supported by Safari
 func isMP3(path string) bool {
@@ -45,9 +57,19 @@ func scanSongs(root string) []string {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixMicro())
+	password = generatePassword()
+	fmt.Printf("The password is %s\n", password)
 	root := "/home/finnneon/Music/"
 	songs := scanSongs(root)
 	http.HandleFunc("/random", func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("PASSWORD")
+		if err == http.ErrNoCookie || cookie.Value != password {
+			time.Sleep(100 * time.Millisecond)
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprintln(w, "Unauthorized, go away please")
+			return
+		}
 		path := root + randomSong(songs)
 		f, err := os.Open(path)
 		if err != nil {
@@ -57,6 +79,16 @@ func main() {
 		}
 		defer f.Close()
 		io.Copy(w, f)
+	})
+	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			http.SetCookie(w, &http.Cookie{
+				Name: "PASSWORD",
+				Value: r.PostFormValue("password"),
+			})
+		}
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<form action="/login" method="POST"><input type="password" id="password" name="password"></form>`)
 	})
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
