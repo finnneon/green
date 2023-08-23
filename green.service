@@ -1,0 +1,12 @@
+# Example Systemd Configuration File
+# Tweak to suit your needs
+[Unit]
+Description=Web Music Player
+After=network.target
+
+[Service]
+Type=simple
+# Change this line to the user that you run green with
+User=green
+ExecStart=/usr/local/bin/green
+Restart=on-failure
