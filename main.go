@@ -58,14 +58,20 @@ func scanSongs(root string) []string {
 	return songs
 }
 
-func randomHandler(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("PASSWORD")
-	if err == http.ErrNoCookie || cookie.Value != password {
-		time.Sleep(100 * time.Millisecond)
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprintln(w, "Unauthorized, go away please")
-		return
+func loginWrapper(f http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("PASSWORD")
+		if err == http.ErrNoCookie || cookie.Value != password {
+			time.Sleep(100 * time.Millisecond)
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprintln(w, "Unauthorized, go away please")
+			return
+		}
+		f(w, r)
 	}
+}
+
+func randomHandler(w http.ResponseWriter, r *http.Request) {
 	path := root + randomSong(songs)
 	f, err := os.Open(path)
 	if err != nil {
@@ -80,7 +86,7 @@ func randomHandler(w http.ResponseWriter, r *http.Request) {
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		http.SetCookie(w, &http.Cookie{
-			Name: "PASSWORD",
+			Name:  "PASSWORD",
 			Value: r.PostFormValue("password"),
 		})
 	}
@@ -94,7 +100,7 @@ func main() {
 	fmt.Printf("The password is %s\n", password)
 	root = "/home/finnneon/Music/"
 	songs = scanSongs(root)
-	http.HandleFunc("/random", randomHandler)
+	http.HandleFunc("/random", loginWrapper(randomHandler))
 	http.HandleFunc("/login", loginHandler)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
