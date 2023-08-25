@@ -13,6 +13,8 @@ import (
 )
 
 var password string
+var root string
+var songs []string
 
 func generatePassword() string {
 	parts := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -56,40 +58,44 @@ func scanSongs(root string) []string {
 	return songs
 }
 
+func randomHandler(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("PASSWORD")
+	if err == http.ErrNoCookie || cookie.Value != password {
+		time.Sleep(100 * time.Millisecond)
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprintln(w, "Unauthorized, go away please")
+		return
+	}
+	path := root + randomSong(songs)
+	f, err := os.Open(path)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintln(w, err)
+		return
+	}
+	defer f.Close()
+	io.Copy(w, f)
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		http.SetCookie(w, &http.Cookie{
+			Name: "PASSWORD",
+			Value: r.PostFormValue("password"),
+		})
+	}
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprint(w, `<form action="/login" method="POST"><input type="password" id="password" name="password"></form>`)
+}
+
 func main() {
 	rand.Seed(time.Now().UnixMicro())
 	password = generatePassword()
 	fmt.Printf("The password is %s\n", password)
-	root := "/home/finnneon/Music/"
-	songs := scanSongs(root)
-	http.HandleFunc("/random", func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("PASSWORD")
-		if err == http.ErrNoCookie || cookie.Value != password {
-			time.Sleep(100 * time.Millisecond)
-			w.WriteHeader(http.StatusForbidden)
-			fmt.Fprintln(w, "Unauthorized, go away please")
-			return
-		}
-		path := root + randomSong(songs)
-		f, err := os.Open(path)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintln(w, err)
-			return
-		}
-		defer f.Close()
-		io.Copy(w, f)
-	})
-	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			http.SetCookie(w, &http.Cookie{
-				Name: "PASSWORD",
-				Value: r.PostFormValue("password"),
-			})
-		}
-		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprint(w, `<form action="/login" method="POST"><input type="password" id="password" name="password"></form>`)
-	})
+	root = "/home/finnneon/Music/"
+	songs = scanSongs(root)
+	http.HandleFunc("/random", randomHandler)
+	http.HandleFunc("/login", loginHandler)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
