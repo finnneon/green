@@ -10,11 +10,20 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/bogem/id3v2/v2"
 )
+
+type Song struct {
+	Title  string
+	Artist string
+	Album  string
+	Path   string
+}
 
 var password string
 var root string
-var songs []string
+var songs []Song
 
 func generatePassword() string {
 	parts := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -35,13 +44,13 @@ func isMP3(path string) bool {
 	return extension == "mp3"
 }
 
-func randomSong(songs []string) string {
+func randomSong(songs []Song) Song {
 	i := rand.Intn(len(songs))
 	return songs[i]
 }
 
-func scanSongs(root string) []string {
-	var songs []string
+func scanSongs(root string) []Song {
+	var songs []Song
 	fs.WalkDir(os.DirFS(root), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			log.Fatal(err)
@@ -52,7 +61,17 @@ func scanSongs(root string) []string {
 		if !isMP3(path) {
 			return nil
 		}
-		songs = append(songs, path)
+		tag, err := id3v2.Open(root+path, id3v2.Options{Parse: true})
+		if err != nil {
+			log.Fatal("Error while opening mp3 file: ", err)
+		}
+		defer tag.Close()
+		songs = append(songs, Song{
+			Title: tag.Title(),
+			Artist: tag.Artist(),
+			Album: tag.Album(),
+			Path: root + path,
+		})
 		return nil
 	})
 	return songs
@@ -72,7 +91,7 @@ func loginWrapper(f http.HandlerFunc) http.HandlerFunc {
 }
 
 func randomHandler(w http.ResponseWriter, r *http.Request) {
-	path := root + randomSong(songs)
+	path := randomSong(songs).Path
 	f, err := os.Open(path)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
