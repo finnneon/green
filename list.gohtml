@@ -1,0 +1,14 @@
+<table>
+    <tr>
+	<th>Title</th>
+	<th>Artist</th>
+	<th>Album</th>
+    </tr>
+    {{range .}}
+	<tr>
+	    <td>{{.Title}}</td>
+	    <td>{{.Artist}}</td>
+	    <td>{{.Album}}</td>
+	</tr>
+    {{end}}
+</table>

@@ -1,7 +1,9 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
+	"html/template"
 	"io"
 	"io/fs"
 	"log"
@@ -20,6 +22,9 @@ type Song struct {
 	Album  string
 	Path   string
 }
+
+//go:embed list.gohtml
+var listTemplate string
 
 var password string
 var root string
@@ -67,10 +72,10 @@ func scanSongs(root string) []Song {
 		}
 		defer tag.Close()
 		songs = append(songs, Song{
-			Title: tag.Title(),
+			Title:  tag.Title(),
 			Artist: tag.Artist(),
-			Album: tag.Album(),
-			Path: root + path,
+			Album:  tag.Album(),
+			Path:   root + path,
 		})
 		return nil
 	})
@@ -113,12 +118,23 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, `<form action="/login" method="POST"><input type="password" id="password" name="password"></form>`)
 }
 
+func listHandler(w http.ResponseWriter, r *http.Request) {
+	t, err := template.New("foo").Parse(listTemplate)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintln(w, err)
+		return
+	}
+	err = t.Execute(w, songs)
+}
+
 func main() {
 	rand.Seed(time.Now().UnixMicro())
 	password = generatePassword()
 	fmt.Printf("The password is %s\n", password)
 	root = "/home/finnneon/Music/"
 	songs = scanSongs(root)
+	http.HandleFunc("/", loginWrapper(listHandler))
 	http.HandleFunc("/random", loginWrapper(randomHandler))
 	http.HandleFunc("/login", loginHandler)
 
