@@ -23,12 +23,24 @@ type Song struct {
 	Path   string
 }
 
+func idTransform(in string) string {
+	return strings.ReplaceAll(strings.ToLower(in), " ", "-")
+}
+
+func (s Song) CreateID() string {
+	var sb strings.Builder
+	sb.WriteString(idTransform(s.Title)) // According to go documentation, error will always be nil
+	sb.WriteString(idTransform(s.Album))
+	sb.WriteString(idTransform(s.Artist))
+	return sb.String()
+}
+
 //go:embed list.gohtml
 var listTemplate string
 
 var password string
 var root string
-var songs []Song
+var songs map[string]Song
 
 func generatePassword() string {
 	parts := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -49,13 +61,20 @@ func isMP3(path string) bool {
 	return extension == "mp3"
 }
 
-func randomSong(songs []Song) Song {
+func randomSong(songs map[string]Song) Song {
 	i := rand.Intn(len(songs))
-	return songs[i]
+	j := 0
+	for _, song := range songs {
+		if i == j {
+			return song
+		}
+		j++
+	}
+	return Song{} // should never happen!
 }
 
-func scanSongs(root string) []Song {
-	var songs []Song
+func scanSongs(root string) map[string]Song {
+	var songs map[string]Song = make(map[string]Song)
 	fs.WalkDir(os.DirFS(root), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			log.Fatal(err)
@@ -71,12 +90,13 @@ func scanSongs(root string) []Song {
 			log.Fatal("Error while opening mp3 file: ", err)
 		}
 		defer tag.Close()
-		songs = append(songs, Song{
+		song := Song{
 			Title:  tag.Title(),
 			Artist: tag.Artist(),
 			Album:  tag.Album(),
 			Path:   root + path,
-		})
+		}
+		songs[song.CreateID()] = song
 		return nil
 	})
 	return songs
