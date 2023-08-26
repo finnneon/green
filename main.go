@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/bogem/id3v2/v2"
 )
@@ -23,15 +24,24 @@ type Song struct {
 	Path   string
 }
 
-func idTransform(in string) string {
-	return strings.ReplaceAll(strings.ToLower(in), " ", "-")
+func idTransform(sb *strings.Builder, in string) {
+	for _, ch := range in {
+		ch = unicode.ToLower(ch)
+		if ch == ' ' {
+			sb.WriteRune('-')
+		} else if ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' {
+			sb.WriteRune(ch)
+		} // ignore all other characters
+	}
 }
 
 func (s Song) CreateID() string {
 	var sb strings.Builder
-	sb.WriteString(idTransform(s.Title)) // According to go documentation, error will always be nil
-	sb.WriteString(idTransform(s.Album))
-	sb.WriteString(idTransform(s.Artist))
+	idTransform(&sb, s.Title)
+	sb.WriteRune('-')
+	idTransform(&sb, s.Album)
+	sb.WriteRune('-')
+	idTransform(&sb, s.Artist)
 	return sb.String()
 }
 
