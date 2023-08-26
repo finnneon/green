@@ -6,7 +6,7 @@
     </tr>
     {{range .}}
 	<tr>
-	    <td>{{.Title}}</td>
+	    <td><a href="/song?id={{.Id}}">{{.Title}}</a></td>
 	    <td>{{.Artist}}</td>
 	    <td>{{.Album}}</td>
 	</tr>

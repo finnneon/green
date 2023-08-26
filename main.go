@@ -22,6 +22,7 @@ type Song struct {
 	Artist string
 	Album  string
 	Path   string
+	Id     string
 }
 
 func idTransform(sb *strings.Builder, in string) {
@@ -106,7 +107,8 @@ func scanSongs(root string) map[string]Song {
 			Album:  tag.Album(),
 			Path:   root + path,
 		}
-		songs[song.CreateID()] = song
+		song.Id = song.CreateID()
+		songs[song.Id] = song
 		return nil
 	})
 	return songs
@@ -158,6 +160,27 @@ func listHandler(w http.ResponseWriter, r *http.Request) {
 	err = t.Execute(w, songs)
 }
 
+func songHandler(w http.ResponseWriter, r *http.Request) {
+	val := r.URL.Query().Get("id")
+	if val == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "You need to provide a song.")
+		return
+	}
+	v, ok := songs[val]
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "Song does not exist")
+	}
+	f, err := os.Open(v.Path)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintln(w, err)
+	}
+	defer f.Close()
+	io.Copy(w, f)
+}
+
 func main() {
 	rand.Seed(time.Now().UnixMicro())
 	password = generatePassword()
@@ -167,6 +190,7 @@ func main() {
 	http.HandleFunc("/", loginWrapper(listHandler))
 	http.HandleFunc("/random", loginWrapper(randomHandler))
 	http.HandleFunc("/login", loginHandler)
+	http.HandleFunc("/song", loginWrapper(songHandler))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
